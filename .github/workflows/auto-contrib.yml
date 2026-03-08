@@ -1,0 +1,65 @@
+name: Auto Contribution (Approval Gated)
+
+on:
+  schedule:
+    - cron: "0 15 * * 1-5" # Weekdays 15:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-contrib
+  cancel-in-progress: false
+
+jobs:
+  propose-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps (if needed)
+        run: |
+          if [ -f package-lock.json ]; then npm ci; fi
+
+      - name: Generate recurring contribution
+        run: |
+          # Replace this with your actual task
+          # Example: update docs timestamp
+          mkdir -p automation
+          echo "Last auto run: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > automation/heartbeat.txt
+
+      - name: Run checks
+        run: |
+          if [ -f package.json ]; then
+            npm run lint --if-present
+            npm test --if-present
+          fi
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto/contrib-${{ github.run_id }}
+          commit-message: "chore(auto): recurring contribution"
+          title: "chore(auto): recurring contribution"
+          body: |
+            ## Automated recurring contribution
+            This PR was created by scheduled workflow.
+
+            ### Safety gates
+            - Required checks must pass
+            - Human review required before merge
+          labels: |
+            auto-generated
+            needs-review
+          draft: true
+          delete-branch: true
